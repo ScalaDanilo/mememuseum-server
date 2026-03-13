@@ -1,0 +1,63 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- I NOSTRI MODELLI ---
+
+model User {
+  id       Int       @id @default(autoincrement())
+  username String    @unique
+  password String    // Qui salveremo la password crittografata, MAI in chiaro!
+  memes    Meme[]    // Un utente può avere tanti meme
+  comments Comment[] // Un utente può scrivere tanti commenti
+  votes    Vote[]    // Un utente può dare tanti voti
+}
+
+model Meme {
+  id         Int       @id @default(autoincrement())
+  imageUrl   String    // L'URL dell'immagine che salveremo su Cloudinary
+  uploadDate DateTime  @default(now())
+  userId     Int
+  user       User      @relation(fields: [userId], references: [id])
+  tags       Tag[]     // Relazione N:M con i Tag (Prisma fa la tabella ponte da solo!)
+  comments   Comment[]
+  votes      Vote[]
+}
+
+model Tag {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  memes Meme[] // Relazione N:M
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  text      String
+  date      DateTime @default(now())
+  userId    Int
+  memeId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  meme      Meme     @relation(fields: [memeId], references: [id])
+}
+
+model Vote {
+  id     Int  @id @default(autoincrement())
+  value  Int  // Salveremo +1 per Upvote e -1 per Downvote
+  userId Int
+  memeId Int
+  user   User @relation(fields: [userId], references: [id])
+  meme   Meme @relation(fields: [memeId], references: [id])
+
+  // Questa è pura ingegneria: impedisce a livello di Database 
+  // che uno stesso utente voti due volte lo stesso meme!
+  @@unique([userId, memeId]) 
+}
