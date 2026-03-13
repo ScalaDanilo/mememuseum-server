@@ -248,16 +248,22 @@ const createMeme = async (req, res) => {
       }
     }
 
-    const newMeme = await prisma.meme.create({
+    const memeData = await prisma.meme.create({
       data: {
         title: title,
-        // Se non viene passata, description sarà undefined o passata come stringa vuota, 
-        // nel database diventerà null (grazie al '?' nello schema Prisma)
         description: description || null, 
         imageUrl: imageUrl,
-        userId: userId,
-        tags: { connect: tagsConnect }
-      },
+        userId: userId
+      }
+    });
+
+    // Colleghiamo i tag SOLO se l'utente li ha effettivamente inseriti
+    if (tagsConnect.length > 0) {
+      memeData.tags = { connect: tagsConnect };
+    }
+
+    const newMeme = await prisma.meme.create({
+      data: memeData,
       include: { tags: true }
     });
 

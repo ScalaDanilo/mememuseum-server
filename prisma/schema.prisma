@@ -30,7 +30,7 @@ model Meme {
   uploadDate  DateTime  @default(now())
   userId      Int
   user        User      @relation(fields: [userId], references: [id])
-  tags        Tag[]     // Relazione N:M con i Tag (Prisma fa la tabella ponte da solo!)
+  tags        Tag[]?     // Relazione N:M con i Tag (Prisma fa la tabella ponte da solo!)
   comments    Comment[]
   votes       Vote[]
 }
