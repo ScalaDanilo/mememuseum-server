@@ -23,14 +23,16 @@ model User {
 }
 
 model Meme {
-  id         Int       @id @default(autoincrement())
-  imageUrl   String    // L'URL dell'immagine che salveremo su Cloudinary
-  uploadDate DateTime  @default(now())
-  userId     Int
-  user       User      @relation(fields: [userId], references: [id])
-  tags       Tag[]     // Relazione N:M con i Tag (Prisma fa la tabella ponte da solo!)
-  comments   Comment[]
-  votes      Vote[]
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String?
+  imageUrl    String    // L'URL dell'immagine che salveremo su Cloudinary
+  uploadDate  DateTime  @default(now())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id])
+  tags        Tag[]     // Relazione N:M con i Tag (Prisma fa la tabella ponte da solo!)
+  comments    Comment[]
+  votes       Vote[]
 }
 
 model Tag {
