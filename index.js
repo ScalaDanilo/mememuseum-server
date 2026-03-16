@@ -20,8 +20,6 @@ app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // --- ROTTE PRINCIPALI ---
-// Diciamo a Express che TUTTE le richieste che iniziano con /api 
-// devono essere passate al nostro gestore di navigazione
 app.use('/api', apiRoutes);
 
 // --- AVVIO DEL SERVER ---

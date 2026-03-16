@@ -7,9 +7,9 @@ const voteController = require('../controllers/vote.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 
 // Rotta POST (Privata): Permette di aggiungere un commento a un meme specifico
-router.post('/:memeId', authMiddleware, voteController.addVote);
+router.post('/:memeId', authMiddleware, voteController.voteMeme);
 
 // Rotta GET (Pubblica): Permette di vedere tutti i commenti di un meme specifico
-router.get('/:memeId', voteController.getVotesByMeme);
+router.get('/:memeId', voteController.getMemeVotes);
 
 module.exports = router;

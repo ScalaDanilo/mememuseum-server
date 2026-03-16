@@ -10,6 +10,6 @@ const authMiddleware = require('../middleware/auth.middleware');
 router.post('/:memeId', authMiddleware, commentController.addComment);
 
 // Rotta GET (Pubblica): Permette di vedere tutti i commenti di un meme specifico
-router.get('/:memeId', commentController.getCommentsByMeme);
+router.get('/:memeId', commentController.getMemeComments);
 
 module.exports = router;

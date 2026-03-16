@@ -1,6 +1,5 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-// Importiamo la connessione al database che hai nel file src/config/prisma.js
 const prisma = require('../config/prisma');
 
 // --- REGISTRAZIONE ---
@@ -8,6 +7,16 @@ const register = async (req, res) => {
   try {
     const { username, password } = req.body;
 
+    // 1. Controllo validità password tramite RegEx
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*_?+-]).{8,}$/;
+    
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({ 
+        error: "La password deve avere almeno 8 caratteri, una lettera maiuscola, un numero e un carattere speciale (!@#$%^&*_?+-)." 
+      });
+    }
+
+    // 2. Controllo se l'username esiste già
     const existingUser = await prisma.user.findUnique({
       where: { username: username }
     });
@@ -16,9 +25,11 @@ const register = async (req, res) => {
       return res.status(400).json({ error: "Questo username è già in uso!" });
     }
 
+    // 3. Criptiamo la password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // 4. Creiamo l'utente
     const newUser = await prisma.user.create({
       data: {
         username: username,
@@ -26,6 +37,7 @@ const register = async (req, res) => {
       }
     });
 
+    // 5. Generiamo il Token
     const token = jwt.sign(
       { userId: newUser.id, username: newUser.username },
       process.env.JWT_SECRET,
@@ -39,7 +51,7 @@ const register = async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("Errore registrazione:", error);
     res.status(500).json({ error: "Errore interno del server durante la registrazione." });
   }
 };
@@ -75,13 +87,9 @@ const login = async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("Errore login:", error);
     res.status(500).json({ error: "Errore interno del server durante il login." });
   }
 };
 
-// Esportiamo le funzioni per usarle nelle rotte
-module.exports = {
-  register,
-  login
-};
+module.exports = { register, login };
