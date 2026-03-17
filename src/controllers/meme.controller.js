@@ -216,10 +216,9 @@ const getDailyMeme = async (req, res) => {
   }
 };
 
-// --- CREAZIONE DI UN NUOVO MEME (AGGIORNATO: MULTER, TAG E DESCRIZIONE) ---
+// --- CREAZIONE DI UN NUOVO MEME ---
 const createMeme = async (req, res) => {
   try {
-    // Aggiunta 'description' all'estrazione dal body
     const { title, description } = req.body;
     let { tagIds } = req.body;
     const userId = req.user.userId;
@@ -234,6 +233,7 @@ const createMeme = async (req, res) => {
 
     const imageUrl = `/uploads/${req.file.filename}`;
 
+    // Prepariamo l'array per collegare i tag (se ci sono)
     let tagsConnect = [];
     if (tagIds) {
       if (typeof tagIds === 'string') {
@@ -247,23 +247,23 @@ const createMeme = async (req, res) => {
       }
     }
 
-    const memeData = await prisma.meme.create({
-      data: {
-        title: title,
-        description: description || null, 
-        imageUrl: imageUrl,
-        userId: userId
-      }
-    });
+    // 1. Prepariamo i dati base del meme (SENZA salvarli ancora nel DB)
+    const memeData = {
+      title: title,
+      description: description || null, 
+      imageUrl: imageUrl,
+      userId: userId
+    };
 
-    // Colleghiamo i tag SOLO se l'utente li ha effettivamente inseriti
+    // 2. Aggiungiamo la relazione con i tag SOLO se l'utente li ha inseriti
     if (tagsConnect.length > 0) {
       memeData.tags = { connect: tagsConnect };
     }
 
+    // 3. Facciamo UNA SOLA chiamata a Prisma per creare il meme e collegare i tag
     const newMeme = await prisma.meme.create({
       data: memeData,
-      include: { tags: true }
+      include: { tags: true } // Vogliamo indietro anche i tag collegati
     });
 
     res.status(201).json({
