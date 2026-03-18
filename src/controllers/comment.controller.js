@@ -3,7 +3,7 @@ const prisma = require('../config/prisma');
 // --- AGGIUNGERE UN COMMENTO (POST) ---
 const addComment = async (req, res) => {
     try {
-        const memeId = parseInt(req.params.id);
+        const memeId = parseInt(req.params.memeId);
         const { text } = req.body;
         const userId = req.user.userId;
 
@@ -18,7 +18,7 @@ const addComment = async (req, res) => {
 
         const newComment = await prisma.comment.create({
             data: { text, memeId, userId },
-            include: { user: { select: { username: true } } }
+            include: { user: { select: { username: true, imageUrl: true } } }
         });
 
         res.status(201).json({ message: "Commento aggiunto!", comment: newComment });
@@ -32,7 +32,7 @@ const addComment = async (req, res) => {
 // --- RECUPERARE I COMMENTI DI UN MEME (GET) ---
 const getMemeComments = async (req, res) => {
     try {
-        const memeId = parseInt(req.params.id);
+        const memeId = parseInt(req.params.memeId);
 
         const meme = await prisma.meme.findUnique({ where: { id: memeId } });
         if (!meme) {
@@ -42,7 +42,7 @@ const getMemeComments = async (req, res) => {
         const comments = await prisma.comment.findMany({
             where: { memeId: memeId },
             orderBy: { date: 'desc' }, 
-            include: { user: { select: { username: true } } } 
+            include: { user: { select: { username: true, imageUrl: true } } } 
         });
 
         res.json(comments);

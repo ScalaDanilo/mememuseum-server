@@ -26,3 +26,7 @@ app.use('/api', apiRoutes);
 app.listen(PORT, () => {
   console.log(`✅ Server in ascolto su http://localhost:${PORT}`);
 });
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server in ascolto su http://0.0.0.0:${PORT}`);
+});

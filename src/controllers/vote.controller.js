@@ -3,9 +3,12 @@ const prisma = require('../config/prisma');
 // --- VOTARE UN MEME (LIKE / DISLIKE) ---
 const voteMeme = async (req, res) => {
     try {
-        const memeId = parseInt(req.params.id);
+        // CORREZIONE QUI: req.params.memeId al posto di req.params.id
+        const memeId = parseInt(req.params.memeId);
         const { value } = req.body; 
         const userId = req.user.userId;
+
+        if (isNaN(memeId)) return res.status(400).json({ error: "ID del meme non valido." });
 
         if (value !== 1 && value !== -1) {
             return res.status(400).json({ error: "Il voto deve essere 1 (Mi Piace) o -1 (Non Mi Piace)." });
@@ -47,7 +50,9 @@ const voteMeme = async (req, res) => {
 // --- RECUPERARE I DETTAGLI DEI VOTI DI UN MEME (GET) ---
 const getMemeVotes = async (req, res) => {
     try {
-        const memeId = parseInt(req.params.id);
+        const memeId = parseInt(req.params.memeId);
+        
+        if (isNaN(memeId)) return res.status(400).json({ error: "ID del meme non valido." });
 
         const meme = await prisma.meme.findUnique({ where: { id: memeId } });
         if (!meme) {
@@ -56,17 +61,26 @@ const getMemeVotes = async (req, res) => {
 
         const votes = await prisma.vote.findMany({
             where: { memeId: memeId },
-            include: { user: { select: { username: true } } }
+            // 1. AGGIUNTO imageUrl: true QUI
+            include: { user: { select: { username: true, imageUrl: true } } }
         });
 
+        // 2. Manteniamo le stringhe per i controlli dei bottoni Like/Dislike
         const likedBy = votes.filter(v => v.value === 1).map(v => v.user.username);
         const dislikedBy = votes.filter(v => v.value === -1).map(v => v.user.username);
+
+        // 3. NUOVO: Creiamo un array di oggetti completi per la Modale!
+        const likedUsersData = votes.filter(v => v.value === 1).map(v => ({
+            username: v.user.username,
+            imageUrl: v.user.imageUrl
+        }));
 
         res.json({
             likesCount: likedBy.length,
             dislikesCount: dislikedBy.length,
             likedBy,       
-            dislikedBy  
+            dislikedBy,
+            likedUsersData // Passiamo i dati completi al frontend
         });
 
     } catch (error) {

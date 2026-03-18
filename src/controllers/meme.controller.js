@@ -286,12 +286,12 @@ const getMemeById = async (req, res) => {
         const meme = await prisma.meme.findUnique({
             where: { id: memeId },
             include: {
-                user: { select: { username: true } }, // Chi lo ha postato
+                user: { select: { username: true, imageUrl: true } }, // Chi lo ha postato
                 tags: true,                           // I tag associati
                 comments: {                           // <-- NUOVO: Includiamo la lista dei commenti
                     orderBy: { date: 'desc' },          // Ordinati dal più recente
                     include: {
-                        user: { select: { username: true } } // Includiamo chi ha scritto il commento
+                        user: { select: { username: true, imageUrl: true } } // Includiamo chi ha scritto il commento
                     }
                 },
                 _count: { select: { comments: true, votes: true } } // Numeri totali

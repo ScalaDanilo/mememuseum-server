@@ -1,39 +1,82 @@
 const prisma = require('../config/prisma');
+const bcrypt = require('bcryptjs'); // Assicurati di avere questo import in alto!
 
-// --- MODIFICA USERNAME ---
-const updateUsername = async (req, res) => {
+// --- RECUPERA IL PROFILO E I SUOI MEME ---
+const getUserProfile = async (req, res) => {
   try {
-    const userId = req.user.userId; // Preso dal Token
-    const { newUsername } = req.body;
+    const userId = req.user.userId;
 
-    if (!newUsername || newUsername.trim() === '') {
-      return res.status(400).json({ error: "Il nuovo username non può essere vuoto." });
-    }
-
-    // Controlliamo se qualcuno ha già preso questo nuovo username
-    const existingUser = await prisma.user.findUnique({
-      where: { username: newUsername }
-    });
-
-    if (existingUser) {
-      return res.status(400).json({ error: "Questo username è già in uso da un altro utente." });
-    }
-
-    // Aggiorniamo l'utente
-    const updatedUser = await prisma.user.update({
+    const user = await prisma.user.findUnique({
       where: { id: userId },
-      data: { username: newUsername },
-      select: { id: true, username: true } // Restituiamo solo dati sicuri (NO password)
+      include: {
+        memes: {
+          orderBy: { uploadDate: 'desc' },
+          include: {
+            user: { select: { username: true } },
+            tags: true,
+            _count: { select: { comments: true, votes: true } }
+          }
+        }
+      }
     });
 
-    res.json({ 
-      message: "Username aggiornato con successo!", 
-      user: updatedUser 
-    });
+    if (!user) return res.status(404).json({ error: "Utente non trovato." });
+
+    const { password, ...safeUser } = user;
+    res.json(safeUser);
 
   } catch (error) {
-    console.error("Errore nell'aggiornamento username:", error);
-    res.status(500).json({ error: "Errore interno del server durante la modifica del profilo." });
+    console.error("Errore recupero profilo:", error);
+    res.status(500).json({ error: "Errore interno del server." });
+  }
+};
+
+// --- AGGIORNA PROFILO (Username, Password, Foto) ---
+const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // Ora req.body non sarà più undefined grazie a Multer nella rotta!
+    const { username, password } = req.body;
+    let dataToUpdate = {};
+
+    // 1. Aggiornamento Username
+    if (username && username.trim() !== '') {
+      const existingUser = await prisma.user.findUnique({ where: { username } });
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(400).json({ error: "Username già in uso da un altro utente." });
+      }
+      dataToUpdate.username = username;
+    }
+
+    // 2. Aggiornamento Password
+    if (password && password.trim() !== '') {
+      const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*_?+-]).{8,}$/;
+      if (!passwordRegex.test(password)) {
+        return res.status(400).json({ error: "Password non conforme ai requisiti di sicurezza." });
+      }
+      const salt = await bcrypt.genSalt(10);
+      dataToUpdate.password = await bcrypt.hash(password, salt);
+    }
+
+    // 3. Aggiornamento Immagine Profilo
+    if (req.file) {
+      // CORREZIONE QUI: Usiamo imageUrl come nel tuo schema Prisma!
+      dataToUpdate.imageUrl = `/uploads/${req.file.filename}`;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: dataToUpdate,
+      // CORREZIONE QUI: Restituiamo imageUrl
+      select: { id: true, username: true, imageUrl: true } 
+    });
+
+    res.json({ message: "Profilo aggiornato con successo!", user: updatedUser });
+
+  } catch (error) {
+    console.error("Errore aggiornamento profilo:", error);
+    res.status(500).json({ error: "Errore interno del server durante la modifica." });
   }
 };
 
@@ -42,30 +85,22 @@ const deleteAccount = async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    // Per evitare errori di Database, dobbiamo cancellare le cose in un ordine preciso:
-    // 1. Troviamo tutti i meme creati da questo utente
     const userMemes = await prisma.meme.findMany({
       where: { userId: userId },
       select: { id: true }
     });
     
-    // Estraiamo solo gli ID in un array
     const memeIds = userMemes.map(meme => meme.id);
 
-    // 2. Cancelliamo tutti i Voti e i Commenti fatti DA ALTRI sui meme di questo utente
     if (memeIds.length > 0) {
       await prisma.vote.deleteMany({ where: { memeId: { in: memeIds } } });
       await prisma.comment.deleteMany({ where: { memeId: { in: memeIds } } });
     }
 
-    // 3. Cancelliamo i meme di questo utente
     await prisma.meme.deleteMany({ where: { userId: userId } });
-
-    // 4. Cancelliamo tutti i Voti e i Commenti che QUESTO utente ha lasciato in giro per il sito
     await prisma.vote.deleteMany({ where: { userId: userId } });
     await prisma.comment.deleteMany({ where: { userId: userId } });
-
-    // 5. INFINE, cancelliamo l'utente stesso
+    
     await prisma.user.delete({
       where: { id: userId }
     });
@@ -79,6 +114,7 @@ const deleteAccount = async (req, res) => {
 };
 
 module.exports = {
-  updateUsername,
+  getUserProfile,
+  updateProfile,
   deleteAccount
 };
