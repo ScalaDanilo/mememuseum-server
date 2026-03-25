@@ -1,9 +1,7 @@
 const prisma = require('../config/prisma');
 
-// --- VOTARE UN MEME (LIKE / DISLIKE) ---
 const voteMeme = async (req, res) => {
     try {
-        // CORREZIONE QUI: req.params.memeId al posto di req.params.id
         const memeId = parseInt(req.params.memeId);
         const { value } = req.body; 
         const userId = req.user.userId;
@@ -47,7 +45,6 @@ const voteMeme = async (req, res) => {
     }
 };
 
-// --- RECUPERARE I DETTAGLI DEI VOTI DI UN MEME (GET) ---
 const getMemeVotes = async (req, res) => {
     try {
         const memeId = parseInt(req.params.memeId);
@@ -61,15 +58,12 @@ const getMemeVotes = async (req, res) => {
 
         const votes = await prisma.vote.findMany({
             where: { memeId: memeId },
-            // 1. AGGIUNTO imageUrl: true QUI
             include: { user: { select: { username: true, imageUrl: true } } }
         });
 
-        // 2. Manteniamo le stringhe per i controlli dei bottoni Like/Dislike
         const likedBy = votes.filter(v => v.value === 1).map(v => v.user.username);
         const dislikedBy = votes.filter(v => v.value === -1).map(v => v.user.username);
 
-        // 3. NUOVO: Creiamo un array di oggetti completi per la Modale!
         const likedUsersData = votes.filter(v => v.value === 1).map(v => ({
             username: v.user.username,
             imageUrl: v.user.imageUrl
@@ -80,7 +74,7 @@ const getMemeVotes = async (req, res) => {
             dislikesCount: dislikedBy.length,
             likedBy,       
             dislikedBy,
-            likedUsersData // Passiamo i dati completi al frontend
+            likedUsersData
         });
 
     } catch (error) {

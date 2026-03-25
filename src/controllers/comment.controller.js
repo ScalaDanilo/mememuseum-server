@@ -1,6 +1,5 @@
 const prisma = require('../config/prisma');
 
-// --- AGGIUNGERE UN COMMENTO (POST) ---
 const addComment = async (req, res) => {
     try {
         const memeId = parseInt(req.params.memeId);
@@ -29,7 +28,6 @@ const addComment = async (req, res) => {
     }
 };
 
-// --- RECUPERARE I COMMENTI DI UN MEME (GET) ---
 const getMemeComments = async (req, res) => {
     try {
         const memeId = parseInt(req.params.memeId);

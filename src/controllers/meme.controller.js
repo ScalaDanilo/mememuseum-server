@@ -1,16 +1,13 @@
 const prisma = require('../config/prisma');
 
-// --- RECUPERO DI TUTTI I MEME (CON FILTRI E PAGINAZIONE, ORDINATI PER DATA) ---
 const getAllMemes = async (req, res) => {
     try {
-        // 1. Estraiamo i parametri dalla query string (es: ?page=1&tag=Gatto)
         const page = parseInt(req.query.page) || 1;
-        const limit = 10; // Massimo 10 meme per pagina (come da traccia)
+        const limit = 10;
         const skip = (page - 1) * limit;
 
         const tagFilter = req.query.tag;
 
-        // 2. Costruiamo le condizioni di ricerca (WHERE)
         let whereCondition = {};
         if (tagFilter) {
             whereCondition = {
@@ -18,19 +15,18 @@ const getAllMemes = async (req, res) => {
                     some: {
                         name: {
                             equals: tagFilter,
-                            mode: 'insensitive' // Ignora maiuscole/minuscole
+                            mode: 'insensitive'
                         }
                     }
                 }
             };
         }
 
-        // 3. Chiediamo a Prisma di trovare i meme con le nuove regole
         const memes = await prisma.meme.findMany({
             skip: skip,
             take: limit,
             where: whereCondition,
-            orderBy: { uploadDate: 'desc' }, // Sempre ordinati dal più recente
+            orderBy: { uploadDate: 'desc' },
             include: {
                 user: {
                     select: { username: true }
@@ -42,11 +38,9 @@ const getAllMemes = async (req, res) => {
             }
         });
 
-        // 4. Contiamo i meme totali (utile al frontend per sapere quante pagine ci sono in totale)
         const totalMemes = await prisma.meme.count({ where: whereCondition });
         const totalPages = Math.ceil(totalMemes / limit);
 
-        // Restituiamo un oggetto strutturato con i dati e i metadati della paginazione
         res.json({
             data: memes,
             meta: {
@@ -62,7 +56,6 @@ const getAllMemes = async (req, res) => {
     }
 };
 
-// --- RICERCA AVANZATA DEI MEME (FILTRI E ORDINAMENTO) ---
 const searchMemes = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -70,10 +63,8 @@ const searchMemes = async (req, res) => {
         const skip = (page - 1) * limit;
 
         const tagFilter = req.query.tag;
-        // Aggiorniamo le opzioni di ordinamento per usare la nuova logica
-        const sortBy = req.query.sortBy; // 'date_asc', 'date_desc', 'most_upvoted', 'most_downvoted'
+        const sortBy = req.query.sortBy;
 
-        // 1. Costruiamo la condizione WHERE per i tag (Questo esclude tutti i meme senza questo tag!)
         let whereCondition = {};
         if (tagFilter) {
             whereCondition = {
@@ -88,7 +79,6 @@ const searchMemes = async (req, res) => {
             };
         }
 
-        // 2. Se l'ordinamento è per DATA, Prisma può farlo da solo
         if (sortBy === 'date_asc' || sortBy === 'date_desc' || !sortBy) {
             const orderByCondition = sortBy === 'date_asc' ? { uploadDate: 'asc' } : { uploadDate: 'desc' };
 
@@ -116,25 +106,21 @@ const searchMemes = async (req, res) => {
             });
         }
 
-        // 3. Se l'ordinamento è per VOTI, sfruttiamo la tua meccanica (likes vs dislikes)
         if (sortBy === 'most_upvoted' || sortBy === 'most_downvoted') {
-            // Prendiamo tutti i meme che rispettano l'eventuale filtro tag
             const allMemes = await prisma.meme.findMany({
                 where: whereCondition,
                 include: {
                     user: { select: { username: true } },
                     tags: true,
-                    votes: true, // Includiamo i voti per contarli in JS
+                    votes: true,
                     _count: { select: { comments: true } }
                 }
             });
 
-            // Applichiamo la stessa identica meccanica di getMemeVotes
             const memesWithScores = allMemes.map(meme => {
                 const likesCount = meme.votes.filter(v => v.value === 1).length;
                 const dislikesCount = meme.votes.filter(v => v.value === -1).length;
 
-                // Rimuoviamo l'array 'votes' pesante e aggiungiamo i conteggi puliti
                 const { votes, ...memeData } = meme;
                 return {
                     ...memeData,
@@ -147,16 +133,14 @@ const searchMemes = async (req, res) => {
                 };
             });
 
-            // Ordiniamo l'array in base a cosa ci ha chiesto l'utente
             memesWithScores.sort((a, b) => {
                 if (sortBy === 'most_upvoted') {
-                    return b.likesCount - a.likesCount; // Il numero più alto di Upvote va per primo
+                    return b.likesCount - a.likesCount;
                 } else if (sortBy === 'most_downvoted') {
-                    return b.dislikesCount - a.dislikesCount; // Il numero più alto di Downvote va per primo
+                    return b.dislikesCount - a.dislikesCount;
                 }
             });
 
-            // Applichiamo la paginazione manualmente estraendo solo i 10 elementi della pagina corrente
             const paginatedMemes = memesWithScores.slice(skip, skip + limit);
 
             return res.json({
@@ -175,30 +159,22 @@ const searchMemes = async (req, res) => {
     }
 };
 
-// --- MEME DEL GIORNO (GET) ---
 const getDailyMeme = async (req, res) => {
   try {
-    // 1. Otteniamo il numero totale di meme nel database
     const totalMemes = await prisma.meme.count();
 
-    // Se non ci sono meme, restituiamo un errore 404
     if (totalMemes === 0) {
       return res.status(404).json({ error: "Nessun meme presente nel database per il meme del giorno." });
     }
 
-    // 2. Calcoliamo un "indice del giorno" basato sulla data attuale.
-    // Usiamo il numero di giorni trascorsi dall'inizio dell'anno (Epoch).
     const now = new Date();
     const start = new Date(now.getFullYear(), 0, 0);
     const diff = (now - start) + ((start.getTimezoneOffset() - now.getTimezoneOffset()) * 60 * 1000);
     const oneDay = 1000 * 60 * 60 * 24;
     const dayOfYear = Math.floor(diff / oneDay);
 
-    // 3. Calcoliamo quale meme prendere usando il modulo.
-    // L'indice cambierà ogni giorno, ma se ci sono meno meme dei giorni dell'anno, ricomincerà da capo.
     const memeIndex = dayOfYear % totalMemes;
 
-    // 4. Recuperiamo il meme specifico usando 'skip'
     const dailyMeme = await prisma.meme.findFirst({
       skip: memeIndex,
       include: {
@@ -216,7 +192,6 @@ const getDailyMeme = async (req, res) => {
   }
 };
 
-// --- CREAZIONE DI UN NUOVO MEME ---
 const createMeme = async (req, res) => {
   try {
     const { title, description } = req.body;
@@ -233,7 +208,6 @@ const createMeme = async (req, res) => {
 
     const imageUrl = `/uploads/${req.file.filename}`;
 
-    // Prepariamo l'array per collegare i tag (se ci sono)
     let tagsConnect = [];
     if (tagIds) {
       if (typeof tagIds === 'string') {
@@ -247,7 +221,6 @@ const createMeme = async (req, res) => {
       }
     }
 
-    // 1. Prepariamo i dati base del meme (SENZA salvarli ancora nel DB)
     const memeData = {
       title: title,
       description: description || null, 
@@ -255,15 +228,13 @@ const createMeme = async (req, res) => {
       userId: userId
     };
 
-    // 2. Aggiungiamo la relazione con i tag SOLO se l'utente li ha inseriti
     if (tagsConnect.length > 0) {
       memeData.tags = { connect: tagsConnect };
     }
 
-    // 3. Facciamo UNA SOLA chiamata a Prisma per creare il meme e collegare i tag
     const newMeme = await prisma.meme.create({
       data: memeData,
-      include: { tags: true } // Vogliamo indietro anche i tag collegati
+      include: { tags: true }
     });
 
     res.status(201).json({
@@ -277,24 +248,22 @@ const createMeme = async (req, res) => {
   }
 };
 
-// --- RECUPERARE I DETTAGLI DI UN SINGOLO MEME (GET) ---
 const getMemeById = async (req, res) => {
     try {
         const memeId = parseInt(req.params.id);
 
-        // Cerchiamo il meme specifico e includiamo i dati utili
         const meme = await prisma.meme.findUnique({
             where: { id: memeId },
             include: {
-                user: { select: { username: true, imageUrl: true } }, // Chi lo ha postato
-                tags: true,                           // I tag associati
-                comments: {                           // <-- NUOVO: Includiamo la lista dei commenti
-                    orderBy: { date: 'desc' },          // Ordinati dal più recente
+                user: { select: { username: true, imageUrl: true } }, 
+                tags: true,
+                comments: {
+                    orderBy: { date: 'desc' },
                     include: {
-                        user: { select: { username: true, imageUrl: true } } // Includiamo chi ha scritto il commento
+                        user: { select: { username: true, imageUrl: true } }
                     }
                 },
-                _count: { select: { comments: true, votes: true } } // Numeri totali
+                _count: { select: { comments: true, votes: true } }
             }
         });
 
@@ -310,33 +279,26 @@ const getMemeById = async (req, res) => {
     }
 };
 
-// --- ELIMINARE UN MEME (DELETE) ---
 const deleteMeme = async (req, res) => {
     try {
         const memeId = parseInt(req.params.id);
-        const userId = req.user.userId; // Preso dal Token JWT tramite middleware
+        const userId = req.user.userId;
 
-        // 1. Cerchiamo il meme
         const meme = await prisma.meme.findUnique({
             where: { id: memeId }
         });
 
-        // Esiste?
         if (!meme) {
             return res.status(404).json({ error: "Meme non trovato." });
         }
 
-        // 2. Controllo Autore: L'utente che fa la richiesta è quello che l'ha creato?
         if (meme.userId !== userId) {
             return res.status(403).json({ error: "Azione negata. Puoi eliminare solo i meme creatati da te." });
         }
 
-        // 3. Eliminiamo i record dipendenti per primi (altrimenti avremmo errori di foreign key)
-        // Cancelliamo tutti i voti e i commenti legati a questo specifico meme
         await prisma.vote.deleteMany({ where: { memeId: memeId } });
         await prisma.comment.deleteMany({ where: { memeId: memeId } });
 
-        // 4. Infine, eliminiamo il meme vero e proprio
         await prisma.meme.delete({
             where: { id: memeId }
         });
@@ -349,7 +311,6 @@ const deleteMeme = async (req, res) => {
     }
 };
 
-// Esportiamo anche la nuova funzione getAllTags
 module.exports = {
     getAllMemes,
     searchMemes,

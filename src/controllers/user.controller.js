@@ -1,7 +1,6 @@
 const prisma = require('../config/prisma');
-const bcrypt = require('bcryptjs'); // Assicurati di avere questo import in alto!
+const bcrypt = require('bcryptjs');
 
-// --- RECUPERA IL PROFILO E I SUOI MEME ---
 const getUserProfile = async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -31,16 +30,13 @@ const getUserProfile = async (req, res) => {
   }
 };
 
-// --- AGGIORNA PROFILO (Username, Password, Foto) ---
 const updateProfile = async (req, res) => {
   try {
     const userId = req.user.userId;
     
-    // Ora req.body non sarà più undefined grazie a Multer nella rotta!
     const { username, password } = req.body;
     let dataToUpdate = {};
 
-    // 1. Aggiornamento Username
     if (username && username.trim() !== '') {
       const existingUser = await prisma.user.findUnique({ where: { username } });
       if (existingUser && existingUser.id !== userId) {
@@ -49,7 +45,6 @@ const updateProfile = async (req, res) => {
       dataToUpdate.username = username;
     }
 
-    // 2. Aggiornamento Password
     if (password && password.trim() !== '') {
       const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*_?+-]).{8,}$/;
       if (!passwordRegex.test(password)) {
@@ -59,16 +54,13 @@ const updateProfile = async (req, res) => {
       dataToUpdate.password = await bcrypt.hash(password, salt);
     }
 
-    // 3. Aggiornamento Immagine Profilo
     if (req.file) {
-      // CORREZIONE QUI: Usiamo imageUrl come nel tuo schema Prisma!
       dataToUpdate.imageUrl = `/uploads/${req.file.filename}`;
     }
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: dataToUpdate,
-      // CORREZIONE QUI: Restituiamo imageUrl
       select: { id: true, username: true, imageUrl: true } 
     });
 
@@ -80,7 +72,6 @@ const updateProfile = async (req, res) => {
   }
 };
 
-// --- ELIMINAZIONE ACCOUNT ---
 const deleteAccount = async (req, res) => {
   try {
     const userId = req.user.userId;
