@@ -4,7 +4,15 @@ const prisma = require('../config/prisma');
 
 const register = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    let { username, password } = req.body;
+
+    if (username) {
+      username = username.trim();
+    }
+
+    if (!username) {
+      return res.status(400).json({ error: "Lo username non può contenere solo spazi vuoti!" });
+    }
 
     const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*_?+-]).{8,}$/;
     
@@ -52,7 +60,11 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    let { username, password } = req.body;
+
+    if (username) {
+      username = username.trim();
+    }
 
     const user = await prisma.user.findUnique({
       where: { username: username }
