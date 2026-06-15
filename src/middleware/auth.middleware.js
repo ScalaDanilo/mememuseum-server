@@ -6,7 +6,7 @@ const authMiddleware = (req, res, next) => {
 
   // Se non c'è l'header, l'utente non è loggato
   if (!authHeader) {
-    return res.status(401).json({ error: "Accesso negato. Nessun token fornito." });
+    return res.status(401).json({ error: "Accesso negato. Effettua prima il login." });
   }
 
   // Il token di solito arriva nel formato "Bearer <token>"
